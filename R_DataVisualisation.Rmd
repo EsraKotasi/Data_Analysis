@@ -1,0 +1,920 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(pubh)
+library(skimr)
+```
+
+
+# Part 1: the <tt>Bernard</tt> data
+
+```{r, warning=FALSE, message=FALSE}
+data("Bernard")
+str(Bernard)
+skim(Bernard)
+view(Bernard)
+```
+
+## Question 1
+
+1.  The variable <tt>treat</tt> represents the treatment group of the subjects. How many patients were treated with Ibuprofen?
+
+### Solution Q1.1
+
+```{r}
+Ibuprofen<-Bernard%>%filter(treat=="Ibuprofen")
+dim(Ibuprofen)
+```
+
+2.  Produce a 2X2 table that shows the number of patients treated with Ibuprofen or Placebo and mortality status at 30 days (alive/dead, the variable <tt>fate</tt>).
+
+### Solution Q1.2
+
+```{r}
+table_treatment_mortality<-table(Bernard$treat,Bernard$fate)
+table_treatment_mortality
+```
+
+3.  Write a function that can be used to conduct inference for proportions in two independent populations. The null hypothesis is that there is no difference between the proportions in the two populations. Test the null hypothesis against a two sided alternative. The input of the function should be the 2X2 table in the Question 1.2 and the output should be the test statistic and the p value. Apply your function to test the null hypothesis that the proportion of deaths among patients who were treated with Ibuprofen is equal to the proportion of deaths among the patients who were not treated with Ibuprofen.
+
+### Solution Q1.3
+
+```{r}
+my_test<-function(table1)
+  {
+  group1 <- sum(table1[1,2],table1[1,1])
+  p_group1<- table1[1,2] / group1
+  group2 <- sum(table1[2,2], table1[2,1])
+  p_group2<- table1[2,2] / group2
+  dif<- p_group2 - p_group1
+  p_sample<- sum(table1[1,2], table1[2,2]) / sum(group1, group2)
+  std_er <- (p_sample * (1-p_sample) * ((1 / group1) + (1 / group2)))^0.5
+  test_statistics<- (dif / std_er)
+  p_value<- (1-pnorm(abs(test_statistics)))
+  print(paste("t statistic:", round(test_statistics, digit=4)))
+  print(paste("p-value:", round(p_value,digits = 4)))
+}
+
+my_test(table_treatment_mortality)
+
+```
+
+4.  Use a barplot to visualize the distribution of the Ibuprofen treatment across the factor levels of the mortality status and produce Figures 1.1 and 1.2.
+
+### Solution Q1.4
+
+```{r}
+ggplot(data=Bernard, aes(fate, fill=treat, color=treat))+
+  geom_bar(width=0.4)+
+  labs(title="Bar Chart with Categories")+
+  theme(legend.position="right", axis.text.x=element_text(angle=45))
+```
+
+## Question 2
+
+1.  What is the mean and standard deviation of the baseline temperature (the variable <tt>temp0</tt>) of the patients by the mortality status?
+
+### Solution Q2.1
+
+```{r}
+Bernard%>%group_by(fate)%>%summarize(mean=mean(temp0), standard_deviation=sd(temp0))
+
+```
+
+2.  Use a boxplot to visualize the distribution of the baseline temperature of the patients by mortality status as shown in Figure 2.1.
+
+### Solution Q2.2
+
+```{r}
+ggplot(data=Bernard, aes(fate,temp0, fill=fate))+
+  geom_boxplot()
+```
+
+3.  Produce Figure 2.2. Note that the red dots are the means for dead and alive patients.
+
+### Solution Q2.3
+
+```{r}
+ggplot(data=Bernard, aes(fate,temp0, fill=fate, color=fate))+
+  geom_point(position=position_jitterdodge(jitter.width = 0.7))+
+  stat_summary(fun = mean, color = 'red')
+```
+
+4.  Calculate a **95%** confidence interval for the mean difference of the baseline temperature of the patients using a t distribution.
+
+### Solution Q2.4
+
+```{r}
+t.test(Bernard$temp0, conf.level = 0.95)
+```
+
+## Question 3
+
+1.  Use a density plot to visualize the distribution of the patients' temperature after 36 hours by the mortality status in the <tt>Bernard</tt> dataset.
+
+### Solution Q3.1
+
+```{r}
+ggplot(data=Bernard, aes(temp10, fill=fate))+
+  geom_density()
+  
+```
+
+2.  How many patients having temperature over 38 centigrade after 36 hours are alive at 30 days?
+
+### Solution Q3.2
+
+```{r}
+df1<-Bernard%>%filter(fate%in%c("Alive")&temp10>38)
+dim(df1)
+```
+
+3.  Add to the <tt>Bernard</tt> data a binary variable <tt>temp10_class</tt> that takes the value of 1 when the temperature after 36 hours is over 38 centigrade and 0 for when the temperature after 36 hr is 38 centigrade or less. What is the proportion of the patients for which <tt>temp10_class</tt> is equal to 1 ?
+
+### Solution Q3.3
+
+```{r}
+
+temp10_class<-Bernard$temp10*0
+temp10_class[Bernard$temp10>38]<-1
+mutate(Bernard, temp10_class)
+proportion<-sum(na.omit(temp10_class))/length(na.omit(temp10_class))
+round(proportion, digit=4)
+```
+
+4.  Create a data frame, <tt>temp10_38</tt>, containing patients with temperature after 36 hours over 38 centigrade. This data frame should contain the variables <tt>fate</tt>, <tt>treat</tt>, <tt>race</tt>, and <tt>apache</tt>. Remove the observations with missing values.
+
+### Solution Q3.4
+
+```{r}
+df2<- Bernard %>% filter(temp10>38)
+temp10_38<- df2 %>% dplyr::select(fate,treat,race,apache)
+na.omit(temp10_38)
+```
+
+5.  What is the dimension of the new data?
+
+### Solution Q3.5
+
+```{r}
+dim(temp10_38)
+```
+
+6.  Among the patients with temperature after 36 hours over 38 centigrade, use a barplot (see Figure 3.2) to visualize the distribution of treatment across the levels of the mortality status (dead/alive). The variable <tt>fate</tt> should be on the x-axis.
+
+### Solution Q3.6
+
+```{r}
+ggplot(data=df2, aes(x=fate,fill=treat))+ 
+  geom_bar(position="dodge")
+```
+
+## Question 4
+
+Write a R function that receives as an input the <tt>Bernard</tt> dataset. The function should conduct the following analysis:
+
+1.  Remove all missing values from the data
+
+### Solution Q4.1
+
+```{r}
+Bernard1<-drop_na(Bernard)
+dim(Bernard1)
+```
+
+2.  Select only the observations for which the mortality status at 30 days is "Dead".
+
+### Solution Q4.2
+
+```{r}
+df3<-Bernard1%>%filter(fate=="Dead")
+dim(df3)
+```
+
+3.  Calculate percentage of deaths out of the overall number of observations.
+
+### Solution Q4.3
+
+```{r}
+overall_perc<-round((dim(df3)[1]/dim(Bernard1)[1]*100), digit=1)
+overall_perc 
+```
+
+4.  Calculate the percentages of each race among the patients who died
+
+### Solution Q4.4
+
+```{r}
+table1<-table(df3$race)
+perc_<-round((table1/sum(table1)*100), digit=2)
+perc_
+```
+
+5.  Calculate the minimum and maximum apache score of the patient (the variable <tt>apache</tt>).
+
+### Solution Q4.5
+
+```{r}
+min(df3$apache)
+max(df3$apache)
+```
+
+6.  Produce a plot visualizing the distribution of race across the levels of the treatment as shown in Figure 4.1.
+
+### Solution Q4.6
+
+```{r}
+ggplot(data=df3, aes(x=treat, fill=race))+ 
+  geom_bar(position="dodge")
+```
+
+7.  This **SINGLE** Function should return **two** outputs:
+    -   Numerical output: the solution for Q4.3, Q4.4 and Q4.5 as a table.
+    -   Graphical output: the solution for Q4.6 (Figure 4.1) as a plot.
+
+### Solution Q4.7
+
+```{r}
+SINGLE<-function(df){
+  df_new<-df%>%filter(fate=="Dead")
+  table1<-table(df_new$race)
+  out1<-tibble(
+    min_apache       =  min(df_new$apache),
+    max_apache       =  max(df_new$apache),
+    overall_perc     =  round((dim(df_new)[1]/dim(df)[1]*100), digit=1),
+    percentage_of_white = round(perc_[1], digit=1),
+    percentage_of  =  round(perc_[2], digit=1),
+    perce         =  perc_[3]
+  )
+  out2<-ggplot(data=df3, aes(x=treat, fill=race))+ 
+    geom_bar(position="dodge")
+  
+  out<-list(out1,out2)
+  return(out)
+}
+
+SINGLE(Bernard1)
+```
+
+## Question 5
+
+1.  Use the <tt>Bernard</tt> dataset to create a new data frame which contains only patients received Ibuprofen.
+
+### Solution Q5.1
+```{r}
+patient_ibup<-Bernard%>%filter(treat=="Ibuprofen")
+```
+
+
+2.  How many patients received Ibuprofen ?
+
+### Solution Q5.2
+```{r}
+dim(patient_ibup)
+```
+
+
+3.  Among the patients who received Ibuprofen, how many were dead and how many were alive at 30 days?
+
+### Solution Q5.3
+```{r}
+table2<-table(patient_ibup$fate)
+table2
+```
+
+
+4.  Among the patients who received Ibuprofen, how many were White, African American and Other race/ethnicity (use the variable <tt>race</tt> to identify the race/ethnicity) ?
+
+### Solution Q5.4
+```{r}
+table3<-table(patient_ibup$race)
+table3
+```
+
+
+5.  Sort the data frame created in Q1.1 according to the baseline APACHE score and the baseline temperature.
+
+### Solution Q5.5
+```{r}
+patient_ibup%>%arrange(apache,temp0)%>%head()
+```
+
+
+6.  Print the 25 patients with the highest temperature (in centigrade) after 36 hours.
+
+### Solution Q5.6
+```{r}
+patient_ibup%>%top_n(25,temp10)
+```
+
+
+## Question 6
+
+Upload your presentation in PDF and Rmd to BB.
+
+# Part 2: the <tt>RailsTails</tt> data
+
+In this part, the questions are focused on the <tt>RailsTails</tt> dataset which is a part of the <tt>Stat2Data</tt> R package. To access the data you need to install the package. More information can be found in <https://www.rdocumentation.org/packages/Stat2Data/versions/2.0.0/topics/RailsTrails>. You can use the code below to access the data.
+
+```{r, warning=FALSE, message=FALSE}
+library(Stat2Data)
+data("RailsTrails")
+names(RailsTrails)
+```
+
+## Question 7
+
+1.  Create two new data frames containing variable <tt>Diff2014</tt>, <tt>SquareFeet</tt>, <tt>BikeScore</tt> and <tt>DistGroup</tt>, for each level of <tt>DistGroup</tt>. How many data lines are included in each data frame ?
+
+### Solution Q7.1
+```{r}
+levels(RailsTrails$DistGroup)
+```
+```{r}
+dataframe1<-RailsTrails%>%dplyr::select(Diff2014, SquareFeet, BikeScore, DistGroup)%>%filter(DistGroup=='Closer')
+
+dataframe2<-RailsTrails%>%dplyr::select(Diff2014, SquareFeet, BikeScore, DistGroup)%>%filter(DistGroup=='Farther Away')
+
+dim(dataframe1)
+dim(dataframe2)
+```
+
+
+2.  For the original data, generate a table of summary statistics (mean, standard deviation, minimum, maximum) of the variables <tt>Diff2014</tt> by the variable <tt>DistGroup</tt>.
+
+### Solution Q7.2
+```{r}
+summary_stat<-RailsTrails%>%dplyr::group_by(DistGroup)%>%summarize(mean=mean(Diff2014), standard_deviation=sd(Diff2014), minimum=min(Diff2014), maximum=max(Diff2014))
+summary_stat
+```
+
+
+3.  Based on the original data, define a new variable, average rooms size in square feet (<tt>Roomsize</tt>) given by Calculate the mean and standard deviation of the variable <tt>Roomsize</tt> and produce the data frame below.
+
+### Solution Q7.3
+```{r}
+Roomsize<-mutate(RailsTrails, Roomsize=Bedrooms/SquareFeet)%>%
+  summarize(Statistics=c("mean", "sd"),Values=c(mean(Roomsize),sd=sd(Roomsize)))
+Roomsize
+
+```
+
+## Question 8
+
+1.  Fit a simple linear regression model (denoted as **M1**) which includes the effect of the square footage of interior finished space as a predictor (the variable <tt>SquareFeet</tt>) and the difference in house price between 2014 estimate and adjusted 1998 estimate as the response variable (the variable <tt>Diff2014</tt>). Print the output of the model (parameter estimates, standatd errors, P values, MSE etc.). Define a R object with is equal to the **R-square** of the model.
+
+### Solution Q8.1
+```{r}
+M1<-lm(Diff2014~SquareFeet,RailsTrails)
+summary(M1)
+#str(summary(M1))
+M1_Rsq<-summary(M1)$r.squared
+```
+
+
+2.  Add variable <tt>DistGroup</tt> in the regression model. Print the output of the model. Test if it is needed using likelihood ratio test. Denote the new model as M2. Define a R object with is equal to the R-square of the new model. Using the two objects, calculate the following statistics... .
+
+### Solution Q8.2
+```{r}
+M2<-lm(Diff2014~SquareFeet+DistGroup,RailsTrails)
+summary(M2)
+#str(summary(M2))
+M2_Rsq<-summary(M2)$r.squared
+```
+```{r}
+anova(M1,M2)
+```
+```{r}
+calculation<-(M2_Rsq^2-M1_Rsq^2)/M1_Rsq^2
+calculation
+```
+
+
+3.  Produce a scatter plot of the <tt>Diff2014</tt> vs <tt>SquareFeet</tt>, and add a regression line as shown in Figure 8.1.
+
+
+### Solution Q8.3
+
+```{r}
+ggplot(RailsTrails, aes(x=SquareFeet, y=Diff2014)) +
+  geom_point(color="blue") +
+  geom_smooth(method=lm, color="red", se=FALSE, linewidth=0.5)+
+  ggtitle("Figure 8.1")
+```
+
+
+4.  Produce the three scatter plots of the <tt>Diff2014</tt> vs <tt>SquareFeet</tt> by <tt>DistGroup</tt> and add the regression line(s) as shown in Figures 8.2, 8.3 and 8.4.
+
+
+### Solution Q8.4
+```{r}
+#Figure 8.2
+ggplot(RailsTrails, aes(x=SquareFeet, y=Diff2014, color=DistGroup)) +
+  geom_point(size= 5) +
+  geom_smooth(method=lm, color="blue", se=TRUE, linewidth=0.5)+
+  labs(x="Sq. feet", col="# DistGroup")+
+  theme_bw()
+```
+
+```{r}
+#Figure 8.3
+ggplot(RailsTrails, aes(x=SquareFeet, y=Diff2014, color=factor(DistGroup))) +
+  geom_point(size=1) +
+  geom_smooth(method=lm, se=FALSE, linewidth=0.5)+
+  facet_wrap(~DistGroup)
+
+```
+
+
+```{r}
+#Figure 8.4
+ggplot(RailsTrails, aes(x=SquareFeet, y=Diff2014, color=factor(DistGroup))) +
+  geom_point() +
+  geom_smooth(method=lm, fill="grey", se=TRUE)
+```
+
+
+# Part 3: the <tt>ToothGrowth </tt> data
+
+In this part we use the data <tt>ToothGrowth </tt> which is a data frame in R. The response is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs. Each animal received one of three dose levels of vitamin C (0.5, 1, and 2 mg/day) by one of two delivery methods (Supplement type): orange juice (OJ) or ascorbic acid (a form of vitamin C and coded as VC). Use the code below to access the data.
+
+```{r, warning=FALSE, message=FALSE}
+names(ToothGrowth)
+head(ToothGrowth)
+```
+
+## Question 9
+
+1.  Conduct a two samples t-test of Tooth length by supplement type (VC vs. OJ) for subject with dose \> 0.5.
+
+### Solution Q9.1
+```{r}
+dose1<-ToothGrowth%>%filter(dose>0.5)
+t.test(len~supp, data=dose1)
+```
+
+
+2.  For the new data (i.e. observations with dose \> 0.5), fit a two-way anova model for with Tooth length as a response variable and supplement type and dose as factors. Include only the main effects in the model. Use two different functions in R to fit the same model.
+
+### Solution Q9.2
+```{r}
+model1<-lm(len~as.factor(supp)+as.factor(dose), data=dose1)
+summary(model1)
+
+```
+
+
+```{r}
+model2<-aov(len~as.factor(supp)+as.factor(dose), data=dose1)
+summary(model2)
+```
+
+
+3.  Produce Figure 9.1 (note that the red point is the median of the group).
+
+### Solution Q9.3
+
+```{r}
+ggplot(dose1,aes(x=supp, y=len, fill=supp))+geom_violin()+
+    geom_point(color="black", size=0.75)+
+    stat_summary(fun = median, color = 'red')
+
+```
+
+
+4.  Produce Figure 9.2.
+
+### Solution Q9.4
+```{r}
+ggplot(dose1,aes(x=as.factor(dose), y=len, fill=as.factor(dose)))+
+  geom_boxplot()+
+  facet_wrap(~supp, nrow=2, strip.position = "right" )
+```
+
+
+# Part 4 : the <tt>efc</tt> data
+
+For the analysis of this part we use the data <tt>efc</tt> which is a part of the R package <tt>sjmisc</tt>. The dataset provides information collected in a survey on the situation of family carers of older people in Europe. More information can be found in <https://cran.r-project.org/web/packages/sjmisc/vignettes/exploringdatasets.html>. The code below can be used to access the data
+
+```{r,warning=FALSE, message=FALSE}
+library(sjmisc)
+library(dplyr)
+data(efc)
+names(efc)
+dim(efc)
+```
+
+## Question 10
+
+In this question we focus on the variable <tt>neg_c\_7</tt> (subjective perception of negative impact of care) and <tt>c161sex</tt> (gender).
+
+1.  Remove the missing values from the data. How many observations are included in the new data? Use the new data for the rest of the analysis in this questions.
+
+### Solution Q10.1
+```{r}
+efc<-drop_na(efc)
+dim(efc)
+gender<-efc$c161sex
+length(gender)
+```
+
+
+2.  Calculate the quantiles of the variable <tt>neg_c\_7</tt>.
+
+### Solution Q10.2
+```{r}
+quantile(efc$neg_c_7)
+```
+
+
+3.  Define a new variable <tt>burden</tt> in the following way: Re-code the variable <tt>neg_c\_7</tt> into a three categories variable (<tt>burden</tt>):
+
+```{=html}
+<!-- -->
+```
+a.  <tt>neg_c\_7</tt> 1-8: low burden.
+b.  <tt>neg_c\_7</tt> 9-13: moderate burden.
+c.  <tt>neg_c\_7</tt> 14-maximum value: high burden.
+
+### Solution Q10.3
+```{r}
+burden<-efc$neg_c_7
+burden[efc$neg_c_7>=1&efc$neg_c_7<=8]<-1
+burden[efc$neg_c_7>=9&efc$neg_c_7<=13]<-2
+burden[efc$neg_c_7>=14]<-3
+efc<-efc%>%mutate(burden=factor(burden))
+```
+
+
+4.  Produce a bar plot for the <tt>burden</tt> (shown in Figure 10.1).
+
+### Solution Q10.4
+```{r}
+ggplot(data=efc, aes(x=burden,fill=burden))+
+  geom_bar( width=1)+
+  theme(legend.position="none", plot.title = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())+
+  coord_flip()
+```
+
+5.  Produce the frequency table for <tt>burden</tt>.
+
+### Solution Q10.5
+```{r}
+table(burden)
+ggplot(efc, aes(x=as.numeric(burden)))+
+  geom_histogram(bins=3, col="grey")+
+  labs(x="Burden", y="Frequency")
+```
+
+
+6.  Produce the pie plot shown in Figure 10.2.
+
+### Solution Q10.6
+```{r}
+ggplot(data=efc, aes(x=burden,fill=burden))+
+  geom_bar(width=1)+
+  theme(legend.position="none", plot.title = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())+
+  coord_polar()
+```
+
+
+7.  Produce the pie plot in (5) by gender (see Figure 10.3).
+
+### Solution Q10.7
+
+```{r}
+ggplot(data=efc, aes(x=burden, fill=factor(burden)))+
+  geom_bar(width=1)+
+  theme(legend.position="none", plot.title = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())+
+  coord_polar()+
+  facet_wrap(~factor(c161sex), nrow=2)
+  
+```
+
+
+8.  Produce the frequency table for <tt>burden</tt> by gender.
+
+### Solution Q10.8
+```{r}
+ggplot(efc, aes(x=burden, fill=as.factor(c161sex)))+
+  geom_bar(position="dodge")+
+  labs(x="Burden", y="Frequency", fill="Gender")
+```
+
+
+## Question 11
+
+In this question we focus on the variable <tt>burden</tt> (defined in Q10) and <tt>c161sex</tt> (gender).
+
+1.  Produce a $3 \times 2$ contingency table for <tt>burden</tt> by gender.
+
+### Solution Q11.1
+```{r}
+table(efc$burden, efc$c161sex)
+```
+
+2.  Use chi-square test to test the hypothesis that <tt>burden</tt> and gender are independent.
+
+### Solution Q11.2
+```{r}
+chisq.test(efc$burden, efc$c161sex)
+```
+
+
+# Part 5: the <tt>diamonds</tt> data
+
+In this part we use the <tt>diamonds</tt> data. The data is a part of the R package <tt>ggplot2</tt>. More information about the data can be found in : <https://bookdown.org/yih_huynh/Guide-to-R-Book/diamonds.html>.
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+names(diamonds)
+dim(diamonds)
+```
+
+## Question 12
+
+1.  Calculate the mean price and price's standard deviation by clarity group.
+
+### Solution Q12.1
+```{r}
+diamonds%>%group_by(clarity)%>%summarize(meanPrice=mean(price),sdPrice=sd(price))
+```
+
+
+2.  How many observations there are in each color group?
+
+
+### Solution Q12.2
+```{r}
+table(diamonds$color)
+```
+
+
+3.  Figure 12.1 shows the median price per cut group and the interval from the minimum price to the maximum price per cut group. Produce the same figure
+
+### Solution Q12.3
+```{r}
+ggplot(data=diamonds, aes(x=cut, y= depth))+
+  geom_line()+
+  geom_linerange(data=diamonds, aes(ymin=depth, ymax=depth))+
+  stat_summary(fun = median)
+```
+
+
+4.  Create a new dataset for which the price is smaller than 7500 and the depth is greater than 55 and smaller than 65. How many observations are included in the new dataset ? For the new dataset, produce Figure 12.2 and 12.3.
+
+### Solution Q12.4
+```{r}
+diamonds1<-diamonds%>%filter(price<7500&depth>55&depth<65)
+dim(diamonds1)
+```
+```{r}
+#Figure 12.2
+ggplot(data=diamonds1, aes(x=depth, y=price, color=color))+
+  geom_jitter()
+```
+
+```{r}
+#Figure 12.3
+ggplot(data=diamonds1, aes(x=depth, y=price, color=color))+
+  geom_jitter()+
+  facet_wrap(~cut, nrow=5, strip.position="right")
+
+```
+
+
+5.  For the original diamonds data, how many observations there are in each combination of the color and cut ? Produce Figure 12.4
+
+### Solution Q12.5
+
+```{r}
+ggplot(data=diamonds, aes(x=cut, fill=cut))+
+  geom_bar(width=1)+
+  facet_wrap(~color)+
+  coord_polar()+
+  theme(legend.position="none", plot.title = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())
+```
+
+## Question 13
+
+1.  Create a new data, <tt>data1</tt> which includes the data for diamonds with very good or premium cut and price smaller than the $25\%$ quantile of the price. How many observations are included?
+
+### Solution Q13.1
+```{r}
+data1<-diamonds%>%filter(cut%in%c("Very Good", "Premium")& price<quantile(price)[2])
+dim(data1)
+```
+
+2.  For the new data, Use a for loop to calculate the correlation between the variables depth and price for each color and produce the data frame below.
+
+### Solution Q13.2
+```{r}
+t<-data1%>%group_by(color)%>%summarize(cor(depth,price))
+t
+```
+
+
+```{r}
+x1<-data.frame(Color=vector(), Correlation=vector())
+
+for (i in unique(data1$color))
+  {
+  Color<-i
+  Correlation<-cor(data1$depth[data1$color==i],data1$price[data1$color==i])
+  x1<-rbind(x1, cbind(Color, round(Correlation, digit=9)))
+}
+
+x1%>%arrange(Color)
+```
+
+3.  For the new data, produce Figure 13.1.
+
+### Solution Q13.3
+```{r}
+ggplot(data=data1, aes(x=carat, y=price, color=as.factor(clarity), fill=as.factor(clarity)))+
+  geom_jitter()+
+  facet_wrap(~cut, nrow=2, strip.position = "right")
+```
+
+
+# Part 6: The <tt>Canadian Crime-Rates Time Series</tt> data
+
+<!-- # Section 7: The <tt> Canadian Crime-Rates Time Series </tt> data -->
+
+The Canadian Crime-Rates Time Series data frame (the R object <tt>Hartnagel</tt>) consists of 38 rows and 7 columns. The data are an annual time-series from 1931 to 1968. More information about the dataset can be found here: <https://www.rdocumentation.org/packages/car/versions/2.1-6/topics/Hartnagel>. Make sure that you install the <tt> carData </tt> package. Use the code below to install and access the data.
+
+```{r,echo=T,results="hide"}
+install.packages("carData",repos="http://cran.us.r-project.org")
+```
+
+```{r}
+library(carData)
+data("Hartnagel")
+colnames(Hartnagel)
+```
+
+## Question 14
+
+1.  Create a new data frame contains only observations without missing data. How many observations are included ?
+
+### Solution Q14.1
+```{r}
+Hartnagel<-drop_na(Hartnagel)
+dim(Hartnagel)
+```
+
+
+2.  Plot the total fertility rate per 1000 women (the variable <tt>tfr</tt> on the y axis) versus the time (the variable <tt>year</tt> on the x axis), see Figure 14.1 below.
+
+### Solution Q14.2
+```{r}
+ggplot(data=Hartnagel, aes(x=year, y=tfr))+
+  geom_point(size=3,color="red")+
+  geom_line(linewidth=1)+
+  labs(title="total fertility rate per 1000 women")
+```
+
+
+3.  Plot the Women's labor-force participation rate per 1000 (the variable <tt>partic</tt> on the x axis) versus the total fertility rate per 1000 women (the variable <tt>tfr</tt> on the y axis), see Figure 14.2 below.
+
+### Solution Q14.2
+```{r}
+ggplot(data=Hartnagel, aes(x=partic, y=tfr))+
+  geom_point(size=6,color="red", alpha=0.7)
+```
+
+
+4.  Plot the Women's labor-force participation rate per 1000 (the variable <tt>partic</tt> on the x axis) versus the total fertility rate per 1000 women (the variable <tt>tfr</tt> on the y axis) and add the information about the time as shown in Figure 14.3.
+
+### Solution Q14.4
+```{r}
+year1<-c(1935,1937,1939,1942,1945,1946,1953,1957,1960,1961)
+
+ggplot(Hartnagel,aes(y=tfr, x=partic, label=year)) +
+  geom_point(size=2, color="#69b3a2")+
+  geom_segment(color="#69b3a2", linewidth=0.7, 
+               aes(yend=c(tail(tfr, n=-1), NA), 
+                    xend=c(tail(partic, n=-1), NA)),
+                   arrow=arrow(length=unit(0.3,"cm")))+
+  geom_text(data=Hartnagel[Hartnagel$year%in%year1,],nudge_x=-5, nudge_y=5,
+    check_overlap=T)+
+  theme_bw()
+```
+
+
+5.  Figure 14.4 shows the total fertility rate per 100000 women versus the time. The pixcel size is proportional to te ratio......
+
+which is the ratio between the variables <tt>ftheft</tt> and <tt>mtheft</tt>. Produce a similar plot.
+
+### Solution Q14.5
+```{r}
+ggplot(data=Hartnagel, aes(x=year, y=tfr, size=ftheft/mtheft))+
+  scale_size_area(max_size=17)+
+  geom_point(alpha=0.7)+
+  theme_bw()
+```
+
+
+# Part 7: The <tt>atmos</tt> data
+
+The atmos dataset is available in R and contains information about Atmospheric data. More information is available in <https://rdrr.io/cran/nasaweather/man/atmos.html>. Use the code below to access the data.
+
+```{r}
+library(nasaweather)
+data(atmos)
+names(atmos)
+head(atmos)
+dim(atmos)
+```
+
+1.  Create a new R object (<tt>newdata</tt>) that contains information only for the months September, October, November, December. How many observations are included in the new data ?
+
+### Solution Q15.1
+```{r}
+newdata<-atmos%>%filter(month%in%c(9,10,11,12))
+dim(newdata)
+```
+
+
+2.  For the new data, sort the observations, from highest to lowest, according to the Surface Temperature and print the top 10 observations.
+
+### Solution Q15.2
+```{r}
+newdata%>%arrange(desc(surftemp))%>%head(10)
+```
+
+
+3.  Define a new variable: <tt>x=(surftemp-temp)/pressure X 100</tt>.
+
+and **add** it to the new data.
+
+### Solution Q15.3
+```{r}
+newdata<-newdata%>%mutate(x=(surftemp-temp)/pressure * 100)
+```
+
+
+4.  Produce a plot of x vs. the years, use different color for the data of each month as shown in Figure 15.1. ,
+
+### Solution Q15.4
+```{r}
+ggplot(data=newdata, aes(x=year,y=x, color=as.factor(month)))+
+  geom_point()
+```
+
+
+5.  Calculate the mean of x by month.
+
+### Solution Q15.5
+```{r}
+newdata%>%group_by(month)%>%summarize(mean=mean(x))
+```
+
+
+6.  Sort the observations in the new data according $x$ and the month and print the first 10 observations in the data.
+
+### Solution Q15.6
+```{r}
+newdata%>%arrange(month,x)%>%head(10)
+```
+
+
+7.  From the original dataset <tt>atmos</tt>, select the data from the year 2000. For the data of the year 2000, calculate the mean <tt>ozone</tt> by month. Let <tt>index</tt> be an indicator variable which takes the value of 1 if the month is January-August (included) and the value of zero for the months September, October November, December, that is.....
+
+Create a new data frame that contains the variables: (1) Month, (2) Index and (3) the mean Ozone per month. Print the new data frame (the data should consists of 12 rows and three columns). Fit the following regression model:
+
+Print the output of the model and produce Figure 15.2.
+
+### Solution Q15.7
+```{r}
+mean_ozone<-atmos%>%filter(year==2000)%>%group_by(month)%>%summarize(mean_ozone=mean(ozone))
+index<-mean_ozone$month*0
+index[mean_ozone$month>=9]<-1
+new_data_frame<-data.frame(Month=mean_ozone$month, Index=index, Ozone=mean_ozone$mean_ozone)
+new_data_frame
+```
+
+```{r}
+modelLast<-lm(Ozone~Month+Index+Index*Month, data=new_data_frame)
+summary(modelLast)
+```
+
+```{r}
+ggplot(data=new_data_frame, aes(x=Month,y=Ozone,color=factor(index)))+
+  geom_point()+
+  geom_smooth(method=lm, fill="grey", se=TRUE)+
+  labs(x="month",y="mean_x")
+```
+
