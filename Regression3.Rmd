@@ -1,0 +1,172 @@
+---
+title: "Akarca_Esra_Hw3"
+author: "AkarcaEsra"
+date: "2022-12-01"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+plant <- read.csv("C:/Users/Akarca Fatih/Downloads/plant.csv")
+library(skimr)
+library(multcomp)
+library(ggplot2)
+```
+
+```{r}
+str(plant)
+```
+The research question is to assess the dose effect of a new organic soil additive on the growth of tomato plants.
+
+This is a clear research question. Thus, there is no reason to do model selection. It makes much more sense to think about the presence of confounders that could be added the model. 
+
+```{r}
+m1<- lm(growth ~ dose, data = plant )
+summary(m1)
+```
+
+
+
+```{r}
+m2 <- lm(growth ~ dose + light.intensity, data = plant )
+summary(m2)
+```
+
+
+```{r}
+m3 <- lm(growth ~ dose + greenhouse, data = plant )
+summary(m3)
+```
+
+
+
+```{r}
+cor(plant[,c("growth","dose","light.intensity","greenhouse")], use="complete.obs")
+```
+
+
+
+```{r}
+ggplot(plant, aes(x=light.intensity, y=growth)) +
+  geom_point(aes(color=as.factor(dose)), size=5) +
+
+  theme(axis.title=element_text(size=15), axis.text = element_text(size=15)) +
+  xlab("Light Intensity") + ylab("Growth") 
+```
+
+
+These outputs show us that there is no confounder here. 
+
+With these findings it is better to build a model with dose as a factor variable with 3 levels.
+
+
+```{r}
+plant$dose <- as.factor(plant$dose)
+```
+
+Before making any analysis, it can be helpful to look at the mean of the dependent variable, growth in cm, for each group. As stated, in "dose" variable 1, 2 and 3 demonstrate the mean growth(cm) of tomato plants that get no additive, additive at a dose of 10g and additive at the dose of 50g, respectively.  
+
+
+
+```{r}
+tapply(plant$growth,plant$dose, mean)
+```
+
+
+```{r}
+boxplot(plant$growth~plant$dose, 
+        xlab="dose",
+        ylab="growth",
+        cex.axis=1.5, cex.lab=1.5)
+```
+
+
+Outputs suggest that plants getting the additive at a dose of 50g grow much more than the other two groups of dose. From these plots, we can already see that the variances are more less equal. However, formal statistical analysis is still needed to check whether what we see can be attributed by chance or not.
+
+
+Statistical model:
+
+In our case, we have 3 categorical variables. Therefore, there should be 2 new variables in the model. 
+
+The model formulation is $Y_{i} = \beta_{0}+ \beta_{1}(dose_{\operatorname{2}}) + \beta_{2}(dose_{\operatorname{3}}) + \epsilon$
+
+In the model,
+
+$Y_{i}$ is growth(cm);
+
+$dose_{\operatorname{2}}$ is the first new variable that compares growth of plants getting the additive at a dose of 10g (coded "1") with the plants getting no additive (as reference group); 
+
+$dose_{\operatorname{3}}$ is the second variable that compares growth of plants getting the additive at a dose of 50g (coded "1") with the plants getting no additive (as reference group). 
+
+We can formulate our research question into the hypototheses as follows:
+
+$H_{\operatorname{0}} : \beta_{\operatorname{1}} = \beta_{\operatorname{2}} = 0$  versus $H_{\operatorname{0}}$ : not $H_{\operatorname{0}}$ 
+
+
+
+```{r}
+dose2<-ifelse(plant$dose==2,1,0)
+dose3<-ifelse(plant$dose==3,1,0)
+
+```
+
+
+
+```{r}
+m<-lm(growth~dose, data= plant)
+summary(m)
+```
+
+
+
+From this analysis we conclude that 
+
+  - the growth of the plants getting the additive at a dose of 10g is estimated to be 2.145 cm more than the plants getting no additive. This effect is significant at the 5% level of significance. 
+
+  - the growth of the plants getting the additive at a dose of 50g is estimated to be 9.78 cm more than the plants getting no additive. This effect is also significant at the 5% level of significance. 
+  
+  - the growth in the reference group is estimated to be 12.51 cm (SE 0.4cm)
+  
+
+Now we can assess whether the three means are equal, then we know that this can be tested with the F-statistic.  
+
+
+```{r}
+anova(m)
+```
+
+
+
+
+From this analysis, at the 5% level of significance, we can conclude that at least two groups show different growth.
+
+
+
+
+```{r}
+
+m<-aov(growth~dose,data=plant)
+m.mcp<-glht(m,linfct=mcp(dose="Tukey"))
+summary(m.mcp,test=adjusted("bonferroni"))
+```
+
+
+Hence, at the 95% level of significance we conclude that there is significant evidence against the null hypothesis of equal effect sizes among the three different dose groups; 1,2,3. 
+
+
+
+Assessment of model assumptions:
+
+From the SAS outputs below, we can conclude that
+
+  - There is a linear relationship between predictor and outcome.
+
+  - The normal QQ plot does not show a serious deviation from normality.
+
+  - A small decrease of the variance with the dose would be a violation of the constant-variance assumption. However, the decrease is only very small and is therefore probably not problematic. 
+
+  - The leverage plot shows one observation with a clearly larger leverage than the others, but as there were no outliers detected, the leverage is not very important here.
+
+In short, there is no serious indication of violation of the model assumptions. 
